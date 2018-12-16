@@ -629,7 +629,10 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see #getBeanFactory()
 	 */
 	protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
+	    // 该方法在任何其他初始化工作之前由 refresh() 调用
+        // 子类必须实实现这个方法,执行实际的配置加载
 		refreshBeanFactory();
+
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 		if (logger.isDebugEnabled()) {
 			logger.debug("Bean factory for " + getDisplayName() + ": " + beanFactory);

@@ -326,6 +326,7 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 			throw new BeanDefinitionStoreException(
 					"Detected cyclic loading of " + encodedResource + " - check your import definitions!");
 		}
+		// 这里得到 xml 文件,并得到 io 的 InputSource 准备进行读取
 		try {
 			InputStream inputStream = encodedResource.getResource().getInputStream();
 			try {
@@ -387,8 +388,14 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 	 */
 	protected int doLoadBeanDefinitions(InputSource inputSource, Resource resource)
 			throws BeanDefinitionStoreException {
+		// 这里是从特定的 xml 文件中实际载入 BeanDefinition 的地方
+
 		try {
+			// 这里取得 xml 文件的 document 对象,这个解析过程是由 documentLoader 完成的这个
+			// documentLoader 是 defaultDocumentLoader,在定义 documentLoader 的地方创建
 			Document doc = doLoadDocument(inputSource, resource);
+
+			// 这里启动的是对 BeanDefinition 解析的详细过程,这个解析会使到 spring 的 bean 配置规则
 			return registerBeanDefinitions(doc, resource);
 		}
 		catch (BeanDefinitionStoreException ex) {
@@ -503,9 +510,14 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 	 * @see BeanDefinitionDocumentReader#registerBeanDefinitions
 	 */
 	public int registerBeanDefinitions(Document doc, Resource resource) throws BeanDefinitionStoreException {
+		// 这里得到 BeanDefinitionDocumentLoader 来对 xml 的 BeanDefinition 进行解析
 		BeanDefinitionDocumentReader documentReader = createBeanDefinitionDocumentReader();
 		int countBefore = getRegistry().getBeanDefinitionCount();
+		// 具体的解析过程是这个 registerBeanDefinitions 中完成的
+        // BeanDefinition 的载入分成两部分,首先通过调用 xml 的解析器得到 document 对象.但这写 document 对象并没有按照 spring 的 bean 规则进行解析.
+        // 在完成通用的 xml 解析后才是按照 spring 的 bean 规则进行解析的地方
 		documentReader.registerBeanDefinitions(doc, createReaderContext(resource));
+		// 对载入的 bean 的数量做统计,通过加载后的 bean 数量减去加载前的数量,得到本次加载的数量
 		return getRegistry().getBeanDefinitionCount() - countBefore;
 	}
 

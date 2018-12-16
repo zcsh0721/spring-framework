@@ -79,6 +79,7 @@ public abstract class AbstractXmlApplicationContext extends AbstractRefreshableC
 	@Override
 	protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) throws BeansException, IOException {
 		// Create a new XmlBeanDefinitionReader for the given BeanFactory.
+		// 创建 XmlBeanDefinitionReader ,并通过回调设置到 BeanFactory 中去
 		XmlBeanDefinitionReader beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory);
 
 		// Configure the bean definition reader with this context's
@@ -89,6 +90,7 @@ public abstract class AbstractXmlApplicationContext extends AbstractRefreshableC
 
 		// Allow a subclass to provide custom initialization of the reader,
 		// then proceed with actually loading the bean definitions.
+		// 允许子类提供自定义实现这个 beanDefinitionReader 初始化(默认实现是空),然后进行实际的 beanDefinition 加载
 		initBeanDefinitionReader(beanDefinitionReader);
 		loadBeanDefinitions(beanDefinitionReader);
 	}
@@ -118,12 +120,26 @@ public abstract class AbstractXmlApplicationContext extends AbstractRefreshableC
 	 * @see #getResourcePatternResolver
 	 */
 	protected void loadBeanDefinitions(XmlBeanDefinitionReader reader) throws BeansException, IOException {
+		// getConfigResources 默认是空方法,由子类实现,
+		// beanDefinition 的载入工作是从 reader.loadBeanDefinitions(configLocations); 开始的,
+		// 而 XmlBeanDefinitionReader 的父类 abstractBeanDefinitionReader 已经为 BeanDefinition 的载入做好了准备
+
+		// 实现的子类只有 ClassPathApplicationContext,
+		// 返回创建 ClassPathApplicationContext 时,根据构造器传入的 path 的参数,找到的 beanDefinition 资源文件
+		// 以 resource 的方式获取配置文件的资源位置
 		Resource[] configResources = getConfigResources();
 		if (configResources != null) {
+			// 如果有,也就是如果启动的容器是 ClassPathApplicationContext ,则进行加载
+			// 注意下面的加载路径最终也会调用这里,多出来的过程只是根据路径查找到资源然后调用,而这里是直接就获取到了资源
 			reader.loadBeanDefinitions(configResources);
 		}
+		// 调用父类 AbstractRefreshableConfigApplicationContext 的方法
+		// configLocations 的赋值就是在子类创建的时候设置的,
+		// 例如 FileSystemXmlApplicationContext 在构造器中根据参数 path 调用了 getConfigLocations(),获取资源
+		// 以 String 的方式获取配置文件的资源位置
 		String[] configLocations = getConfigLocations();
 		if (configLocations != null) {
+			// 如果有,也就是如果启动容器是 FileSystemXmlApplicationContext(也可能是其他子类),则进行加载
 			reader.loadBeanDefinitions(configLocations);
 		}
 	}

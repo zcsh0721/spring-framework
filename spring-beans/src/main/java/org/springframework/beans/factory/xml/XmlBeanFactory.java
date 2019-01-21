@@ -75,7 +75,10 @@ public class XmlBeanFactory extends DefaultListableBeanFactory {
 	 * @throws BeansException in case of loading or parsing errors
 	 */
 	public XmlBeanFactory(Resource resource, BeanFactory parentBeanFactory) throws BeansException {
+		// 设置父工程,这里的 parentBeanFactory 为 null
+		// 值得注意的是在调用到父类 AbstractAutowireCapableBeanFactory 的初始化方法时,会设置忽略依赖个别接口的自动装配,也就是不会通过 @Autowired 注解注入这些接口的实现
 		super(parentBeanFactory);
+		// 加载资源的起点
 		this.reader.loadBeanDefinitions(resource);
 	}
 

@@ -135,7 +135,6 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 		super(registry);
 	}
 
-
 	/**
 	 * Set whether to use XML validation. Default is {@code true}.
 	 * <p>This method switches namespace awareness on if validation is turned off,
@@ -317,6 +316,7 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 			logger.info("Loading XML bean definitions from " + encodedResource);
 		}
 
+		// 在当前线程中加入正在加载的 Resources ,如果重复加载同一个 Resources 则报错,在加载完毕后会删除
 		Set<EncodedResource> currentResources = this.resourcesCurrentlyBeingLoaded.get();
 		if (currentResources == null) {
 			currentResources = new HashSet<EncodedResource>(4);
@@ -326,11 +326,13 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 			throw new BeanDefinitionStoreException(
 					"Detected cyclic loading of " + encodedResource + " - check your import definitions!");
 		}
-		// 这里得到 xml 文件,并得到 io 的 InputSource 准备进行读取
+
+		// 这里得到 resource io 流, 也就是获取类路径下 (因为我们使用的是 Resource 的 ClassPathResource 实现,所以会去类路径下找) spring.xml 的 io流,如果找不到会报错
 		try {
 			InputStream inputStream = encodedResource.getResource().getInputStream();
 			try {
 				InputSource inputSource = new InputSource(inputStream);
+				// 如果资源文件设置了编码格式,则 io 流也设置编码格式
 				if (encodedResource.getEncoding() != null) {
 					inputSource.setEncoding(encodedResource.getEncoding());
 				}
@@ -388,14 +390,14 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 	 */
 	protected int doLoadBeanDefinitions(InputSource inputSource, Resource resource)
 			throws BeanDefinitionStoreException {
-		// 这里是从特定的 xml 文件中实际载入 BeanDefinition 的地方
+		// 这里是从特定的 io 流中实际载入 BeanDefinition 的地方
 
 		try {
-			// 这里取得 xml 文件的 document 对象,这个解析过程是由 documentLoader 完成的这个
-			// documentLoader 是 defaultDocumentLoader,在定义 documentLoader 的地方创建
+			// 这里将 io 流转化为 document 对象,这个解析过程是由 documentLoader 完成的这个
+			// documentLoader 是 defaultDocumentLoader
 			Document doc = doLoadDocument(inputSource, resource);
 
-			// 这里启动的是对 BeanDefinition 解析的详细过程,这个解析会使到 spring 的 bean 配置规则
+			// 这里将 Document 解析为 BeanDefinition 的详细过程,这个解析会使到 spring 的 bean 配置规则
 			return registerBeanDefinitions(doc, resource);
 		}
 		catch (BeanDefinitionStoreException ex) {
@@ -433,6 +435,8 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 	 * @see DocumentLoader#loadDocument
 	 */
 	protected Document doLoadDocument(InputSource inputSource, Resource resource) throws Exception {
+		// getValidationModeForResource(resource) 方法是检测 Resource 是什么文档类型的,因为我们使用是 xml,所以会返回 3 也就是本类中的静态属性 VALIDATION_XSD
+		// 然后进行 io 流解析
 		return this.documentLoader.loadDocument(inputSource, getEntityResolver(), this.errorHandler,
 				getValidationModeForResource(resource), isNamespaceAware());
 	}
@@ -510,14 +514,14 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 	 * @see BeanDefinitionDocumentReader#registerBeanDefinitions
 	 */
 	public int registerBeanDefinitions(Document doc, Resource resource) throws BeanDefinitionStoreException {
-		// 这里得到 BeanDefinitionDocumentLoader 来对 xml 的 BeanDefinition 进行解析
+		// 这里得到 DefaultBeanDefinitionDocumentReader 来对 Document 进行解析
 		BeanDefinitionDocumentReader documentReader = createBeanDefinitionDocumentReader();
+		// 获取解析注册前 BeanDefinition 的数量
 		int countBefore = getRegistry().getBeanDefinitionCount();
-		// 具体的解析过程是这个 registerBeanDefinitions 中完成的
-        // BeanDefinition 的载入分成两部分,首先通过调用 xml 的解析器得到 document 对象.但这写 document 对象并没有按照 spring 的 bean 规则进行解析.
-        // 在完成通用的 xml 解析后才是按照 spring 的 bean 规则进行解析的地方
+
+		// 具体的 Document 解析过程是 registerBeanDefinitions 方法中完成的
 		documentReader.registerBeanDefinitions(doc, createReaderContext(resource));
-		// 对载入的 bean 的数量做统计,通过加载后的 bean 数量减去加载前的数量,得到本次加载的数量
+		// 返回本次注册 BeanDefinition 的数量
 		return getRegistry().getBeanDefinitionCount() - countBefore;
 	}
 

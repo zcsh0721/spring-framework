@@ -125,6 +125,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		// this behavior emulates a stack of delegates without actually necessitating one.
         // 最终重置 delegate 为原来的 ParserDelegate
 		BeanDefinitionParserDelegate parent = this.delegate;
+		// 创建解析该 root 元素的代理
 		this.delegate = createDelegate(getReaderContext(), root, parent);
 
 		if (this.delegate.isDefaultNamespace(root)) {
@@ -144,7 +145,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		}
 		// 解析 beanDefinition 前置处理器,默认为空,
 		preProcessXml(root);
-		// 解析通用的 xml document 对象,按照 spring xml 的规则进行解析
+		// 解析通用的 xml Element 对象,按照 spring xml 的规则进行解析
 		parseBeanDefinitions(root, this.delegate);
 		// 解析 beanDefinition 后置处理器,默认为空,
 		postProcessXml(root);
@@ -308,8 +309,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	 * and registering it with the registry.
 	 */
 	protected void processBeanDefinition(Element ele, BeanDefinitionParserDelegate delegate) {
-	    // BeanDefinitionHolder 时 BeanDefinition 对象的封装类,封装 BeanDefinition ,bean 的名字和别名
-        // 用它来完成向 ioc 容器注册.
+	    // BeanDefinitionHolder 是 BeanDefinition 对象的封装类,封装 BeanDefinition ,用它来完成向 ioc 容器注册.
         // 得到 bdHolder 就意味着 BeanDefinition 是通过 BeanDefinitionParserDelegate 对 xml 元素的信息按照 spring 的 bean 规则进行解析到的
 		BeanDefinitionHolder bdHolder = delegate.parseBeanDefinitionElement(ele);
 		if (bdHolder != null) {

@@ -32,7 +32,7 @@ import org.springframework.util.StringUtils;
 
 /**
  * Simple object instantiation strategy for use in a BeanFactory.
- *
+ * 在BeanFactory中使用的简单对象实例化策略。
  * <p>Does not support Method Injection, although it provides hooks for subclasses
  * to override to add Method Injection support, for example by overriding methods.
  *
@@ -58,7 +58,9 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 	@Override
 	public Object instantiate(RootBeanDefinition bd, String beanName, BeanFactory owner) {
 		// Don't override the class with CGLIB if no overrides.
+		// ioc 容器有要覆盖的方法,如果有则使用 CGLIB 策略,否则使用 BeanUtils 实例化
 		if (bd.getMethodOverrides().isEmpty()) {
+			// 这里取得指定的构造器或者生成对象的工厂方法对 bean 进行实例化
 			Constructor<?> constructorToUse;
 			synchronized (bd.constructorArgumentLock) {
 				constructorToUse = (Constructor<?>) bd.resolvedConstructorOrFactoryMethod;
@@ -86,10 +88,13 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 					}
 				}
 			}
+			// 通过 beanUtils 进行实例化,这个 beanUtils 的实例化通过 Constructor 来实例化 bean
+			// 在 beanUtils 中可以看到具体的调用 ctor.newINstance(args)
 			return BeanUtils.instantiateClass(constructorToUse);
 		}
 		else {
 			// Must generate CGLIB subclass.
+			// 使用 GCLIB 来实例化对象
 			return instantiateWithMethodInjection(bd, beanName, owner);
 		}
 	}
@@ -119,6 +124,7 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 					}
 				});
 			}
+
 			return BeanUtils.instantiateClass(ctor, args);
 		}
 		else {

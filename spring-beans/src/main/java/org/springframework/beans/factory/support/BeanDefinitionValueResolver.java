@@ -103,6 +103,7 @@ class BeanDefinitionValueResolver {
 	public Object resolveValueIfNecessary(Object argName, Object value) {
 		// We must check each value to see whether it requires a runtime reference
 		// to another bean to be resolved.
+		// 这里对 RuntimeBeanReference 进行解析, RuntimeBeanReference 是在对 BeanDefinition 进行解析时生产的数据对象
 		if (value instanceof RuntimeBeanReference) {
 			RuntimeBeanReference ref = (RuntimeBeanReference) value;
 			return resolveReference(argName, ref);
@@ -338,6 +339,7 @@ class BeanDefinitionValueResolver {
 		try {
 			String refName = ref.getBeanName();
 			refName = String.valueOf(doEvaluate(refName));
+			// 如果引用实在双亲容器中,那就到双亲容器中获取
 			if (ref.isToParent()) {
 				if (this.beanFactory.getParentBeanFactory() == null) {
 					throw new BeanCreationException(
@@ -348,6 +350,7 @@ class BeanDefinitionValueResolver {
 				return this.beanFactory.getParentBeanFactory().getBean(refName);
 			}
 			else {
+				// 在当前 ioc 容器中去获取 bean ,这里会触发一个 getBean 的过程,如果依赖注入没有发生,这里会触发相应的依赖注入的发生
 				Object bean = this.beanFactory.getBean(refName);
 				this.beanFactory.registerDependentBean(refName, this.beanName);
 				return bean;

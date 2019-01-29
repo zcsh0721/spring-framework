@@ -134,6 +134,7 @@ public class ClassPathXmlApplicationContext extends AbstractXmlApplicationContex
 			throws BeansException {
 
 		super(parent);
+		// 解析 configLocations, 设置父类 AbstractRefreshableConfigApplicationContext 的 configLocations 属性
 		setConfigLocations(configLocations);
 		if (refresh) {
 			refresh();

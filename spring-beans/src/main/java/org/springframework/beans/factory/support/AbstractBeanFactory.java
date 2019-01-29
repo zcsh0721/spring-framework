@@ -254,6 +254,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				}
 			}
 			// 这里的 getObjectForBeanInstance 完成的是 FactoryBean 的相关处理,以取得 FactoryBean 的生产结果
+			// 一般情况下会直接返回 sharedInstance
 			bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
 		}
 
@@ -265,8 +266,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			// Check if bean definition exists in this factory.
-			// 这里对 ioc 容器中的 BeanDefinition 是否存在进行检查,检查是否能在当前的 BeanFactory 中取得需要的 bean
-			// 如果在当前的工厂中取不到,则到双亲 BeanFactory 中去取,如果当前的双亲工厂去不到,那就顺着双亲 BeanFactory 链一直向上找
+			// 这里对 ioc 容器中的 BeanDefinition 是否存在进行检查,检查是否能在当前的 BeanFactory 中取得需要的 BeanDefinition
+			// 如果在当前的工厂中取不到,则到父 BeanFactory 中去取,如果当前的工厂的父 BeanFactory 找不到,那就顺着 BeanFactory 链一直向上找
 			BeanFactory parentBeanFactory = getParentBeanFactory();
 			if (parentBeanFactory != null && !containsBeanDefinition(beanName)) {
 				// Not found -> check parent.
@@ -282,19 +283,20 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			if (!typeCheckOnly) {
-				// 在 map 保存标识,记录这个 beanName 已经被创建过了
+				// 在 map 保存标识,记录这个 beanName 已经被创建过了 ,并删除 beanName 合并的 BeanDefinition
 				markBeanAsCreated(beanName);
 			}
 
 			try {
-				// 这里根据 bean 的名字取得 BeanDefinition
+				// 这里根据 bean 的名字取得 BeanDefinition,并重新创建合并的 BeanDefinition
 				final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
+				// 检查 BeanDefinition 是否是抽象的,如果是则抛异常
 				checkMergedBeanDefinition(mbd, beanName, args);
 
 				// Guarantee initialization of beans that the current bean depends on.
 				// 确保当前 bean 所依赖的 bean 的初始化
 				String[] dependsOn = mbd.getDependsOn();
-				// 获取当前 bean 的所有依赖 bean,这样会触发 getBean 的递归调用,直到渠道一个没有任何依赖的 bean 为止
+				// 获取当前 bean 的所有依赖 bean,这样会触发 getBean 的递归调用,直到去到一个没有任何依赖的 bean 为止
 				if (dependsOn != null) {
 					for (String dep : dependsOn) {
 						if (isDependent(beanName, dep)) {
@@ -304,6 +306,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 						// 这里添加相互依赖的关系 map, dep 依赖于 B, B 被 dep 依赖.存放到 两个 map 中, dependentBeanMap,dependenciesForBeanMap
 						registerDependentBean(dep, beanName);
 						try {
+							// 递归调用,先创建当前 BeanName 所依赖的对象
 							getBean(dep);
 						}
 						catch (NoSuchBeanDefinitionException ex) {
@@ -319,6 +322,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 						@Override
 						public Object getObject() throws BeansException {
 							try {
+								// 创建 bean 的地方
 								return createBean(beanName, mbd, args);
 							}
 							catch (BeansException ex) {
@@ -1137,6 +1141,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @return the transformed bean name
 	 */
 	protected String transformedBeanName(String name) {
+		// 如果 name 带前缀'&' 或是别名,则返回真实 beanName
 		return canonicalName(BeanFactoryUtils.transformedBeanName(name));
 	}
 
@@ -1258,7 +1263,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	protected RootBeanDefinition getMergedBeanDefinition(
 			String beanName, BeanDefinition bd, BeanDefinition containingBd)
 			throws BeanDefinitionStoreException {
-
+		// 在创建合并 BeanDefinition 的时候上锁
 		synchronized (this.mergedBeanDefinitions) {
 			RootBeanDefinition mbd = null;
 
@@ -1268,6 +1273,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			if (mbd == null) {
+				// 判断是否有父类,如果没有则将 BeanDefinition  转化为 RootBeanDefinition
+				// 如果本身就是 RootBeanDefinition 则克隆一份
 				if (bd.getParentName() == null) {
 					// Use copy of given root bean definition.
 					if (bd instanceof RootBeanDefinition) {
@@ -1278,11 +1285,14 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					}
 				}
 				else {
+					// 进入这里表示有父 BeanDefinition,则需要和父 BeanDefinition 合并
+
 					// Child bean definition: needs to be merged with parent.
 					BeanDefinition pbd;
 					try {
 						String parentBeanName = transformedBeanName(bd.getParentName());
 						if (!beanName.equals(parentBeanName)) {
+							// 获取父类合并好的 BeanDefinition
 							pbd = getMergedBeanDefinition(parentBeanName);
 						}
 						else {
@@ -1303,6 +1313,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					}
 					// Deep copy with overridden values.
 					mbd = new RootBeanDefinition(pbd);
+					// 使当前 BeanDefinition 有的属性,覆盖父 BeanDefinition 的属性
 					mbd.overrideFrom(bd);
 				}
 
@@ -1322,6 +1333,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				// Cache the merged bean definition for the time being
 				// (it might still get re-merged later on in order to pick up metadata changes)
 				if (containingBd == null && isCacheBeanMetadata()) {
+					// 缓存合并的 BeanDefinition
 					this.mergedBeanDefinitions.put(beanName, mbd);
 				}
 			}
@@ -1566,6 +1578,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				if (!this.alreadyCreated.contains(beanName)) {
 					// Let the bean definition get re-merged now that we're actually creating
 					// the bean... just in case some of its metadata changed in the meantime.
+					// 此时我们正在创建 bean,先删除合并的 BeanDefinition ,再创建前重新合并 BeanDefinition 防止一些元数据变化
 					clearMergedBeanDefinition(beanName);
 					this.alreadyCreated.add(beanName);
 				}

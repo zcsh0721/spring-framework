@@ -63,6 +63,7 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 			// 这里取得指定的构造器或者生成对象的工厂方法对 bean 进行实例化
 			Constructor<?> constructorToUse;
 			synchronized (bd.constructorArgumentLock) {
+				// 获取 BeanDefinition 的构造函数,
 				constructorToUse = (Constructor<?>) bd.resolvedConstructorOrFactoryMethod;
 				if (constructorToUse == null) {
 					final Class<?> clazz = bd.getBeanClass();
@@ -89,12 +90,12 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 				}
 			}
 			// 通过 beanUtils 进行实例化,这个 beanUtils 的实例化通过 Constructor 来实例化 bean
-			// 在 beanUtils 中可以看到具体的调用 ctor.newINstance(args)
+			// 在 beanUtils 中可以看到具体的调用 ctor.newInstance(args)
 			return BeanUtils.instantiateClass(constructorToUse);
 		}
 		else {
 			// Must generate CGLIB subclass.
-			// 使用 GCLIB 来实例化对象
+			// 使用 CGLIB 来实例化对象
 			return instantiateWithMethodInjection(bd, beanName, owner);
 		}
 	}

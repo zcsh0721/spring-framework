@@ -1270,7 +1270,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (!continueWithPropertyPopulation) {
 			return;
 		}
-		// 开始进行依赖注入过程,先处理 autowire 的注入
+		// 如果 bean 在创建时设置了 Autowire.BY_TYPE 或 Autowire.BY_NAME (默认是 no)
+		// 那么会将当前 bean 的所有字段通过 type 或 name 去容器中查找,如果有的话直接复制,不需要通过 @Autowire 注解来注入
 		if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_NAME ||
 				mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -98,9 +98,17 @@ public abstract class StompClientSupport {
 	 * <p>By default this is set to "10000,10000" but subclasses may override
 	 * that default and for example set it to "0,0" if they require a
 	 * TaskScheduler to be configured first.
+	 * <p><strong>Note:</strong> that a heartbeat is sent only in case of
+	 * inactivity, i.e. when no other messages are sent. This can present a
+	 * challenge when using an external broker since messages with a non-broker
+	 * destination represent activity but aren't actually forwarded to the broker.
+	 * In that case you can configure a `TaskScheduler` through the
+	 * {@link org.springframework.messaging.simp.config.StompBrokerRelayRegistration}
+	 * which ensures a heartbeat is forwarded to the broker also when only
+	 * messages with a non-broker destination are sent.
 	 * @param heartbeat the value for the CONNECT "heart-beat" header
-	 * @see <a href="http://stomp.github.io/stomp-specification-1.2.html#Heart-beating">
-	 * http://stomp.github.io/stomp-specification-1.2.html#Heart-beating</a>
+	 * @see <a href="https://stomp.github.io/stomp-specification-1.2.html#Heart-beating">
+	 * https://stomp.github.io/stomp-specification-1.2.html#Heart-beating</a>
 	 */
 	public void setDefaultHeartbeat(long[] heartbeat) {
 		if (heartbeat.length != 2 || heartbeat[0] < 0 || heartbeat[1] < 0) {

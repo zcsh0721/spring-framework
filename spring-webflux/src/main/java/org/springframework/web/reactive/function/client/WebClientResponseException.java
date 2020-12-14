@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -63,11 +63,16 @@ public class WebClientResponseException extends WebClientException {
 	 * Constructor with response data only, and a default message.
 	 * @since 5.1.4
 	 */
-	public WebClientResponseException(int statusCode, String statusText,
+	public WebClientResponseException(int status, String reasonPhrase,
 			@Nullable HttpHeaders headers, @Nullable byte[] body, @Nullable Charset charset,
 			@Nullable HttpRequest request) {
 
-		this(statusCode + " " + statusText, statusCode, statusText, headers, body, charset, request);
+		this(initMessage(status, reasonPhrase, request), status, reasonPhrase, headers, body, charset, request);
+	}
+
+	private static String initMessage(int status, String reasonPhrase, @Nullable HttpRequest request) {
+		return status + " " + reasonPhrase +
+				(request != null ? " from " + request.getMethodValue() + " " + request.getURI() : "");
 	}
 
 	/**
@@ -150,7 +155,7 @@ public class WebClientResponseException extends WebClientException {
 	}
 
 	/**
-	 * Create {@code WebClientResponseException} or an HTTP status specific sub-class.
+	 * Create {@code WebClientResponseException} or an HTTP status specific subclass.
 	 * @since 5.1
 	 */
 	public static WebClientResponseException create(
@@ -160,7 +165,7 @@ public class WebClientResponseException extends WebClientException {
 	}
 
 	/**
-	 * Create {@code WebClientResponseException} or an HTTP status specific sub-class.
+	 * Create {@code WebClientResponseException} or an HTTP status specific subclass.
 	 * @since 5.1.4
 	 */
 	public static WebClientResponseException create(
@@ -209,7 +214,7 @@ public class WebClientResponseException extends WebClientException {
 
 
 
-	// Sub-classes for specific, client-side, HTTP status codes..
+	// Subclasses for specific, client-side, HTTP status codes
 
 	/**
 	 * {@link WebClientResponseException} for status HTTP 400 Bad Request.
@@ -362,7 +367,7 @@ public class WebClientResponseException extends WebClientException {
 
 
 
-	// Sub-classes for specific, server-side, HTTP status codes..
+	// Subclasses for specific, server-side, HTTP status codes
 
 	/**
 	 * {@link WebClientResponseException} for status HTTP 500 Internal Server Error.

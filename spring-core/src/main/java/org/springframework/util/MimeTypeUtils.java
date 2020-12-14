@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +31,6 @@ import java.util.Random;
 import java.util.stream.Collectors;
 
 import org.springframework.lang.Nullable;
-import org.springframework.util.MimeType.SpecificityComparator;
 
 /**
  * Miscellaneous {@link MimeType} utility methods.
@@ -39,6 +38,8 @@ import org.springframework.util.MimeType.SpecificityComparator;
  * @author Arjen Poutsma
  * @author Rossen Stoyanchev
  * @author Dimitrios Liapis
+ * @author Brian Clozel
+ * @author Sam Brannen
  * @since 4.0
  */
 public abstract class MimeTypeUtils {
@@ -52,7 +53,7 @@ public abstract class MimeTypeUtils {
 	/**
 	 * Comparator used by {@link #sortBySpecificity(List)}.
 	 */
-	public static final Comparator<MimeType> SPECIFICITY_COMPARATOR = new SpecificityComparator<>();
+	public static final Comparator<MimeType> SPECIFICITY_COMPARATOR = new MimeType.SpecificityComparator<>();
 
 	/**
 	 * Public constant mime type that includes all media ranges (i.e. "&#42;/&#42;").
@@ -154,26 +155,31 @@ public abstract class MimeTypeUtils {
 	 */
 	public static final String TEXT_XML_VALUE = "text/xml";
 
+
+	private static final ConcurrentLruCache<String, MimeType> cachedMimeTypes =
+			new ConcurrentLruCache<>(64, MimeTypeUtils::parseMimeTypeInternal);
+
 	@Nullable
 	private static volatile Random random;
 
-
 	static {
-		ALL = MimeType.valueOf(ALL_VALUE);
-		APPLICATION_JSON = MimeType.valueOf(APPLICATION_JSON_VALUE);
-		APPLICATION_OCTET_STREAM = MimeType.valueOf(APPLICATION_OCTET_STREAM_VALUE);
-		APPLICATION_XML = MimeType.valueOf(APPLICATION_XML_VALUE);
-		IMAGE_GIF = MimeType.valueOf(IMAGE_GIF_VALUE);
-		IMAGE_JPEG = MimeType.valueOf(IMAGE_JPEG_VALUE);
-		IMAGE_PNG = MimeType.valueOf(IMAGE_PNG_VALUE);
-		TEXT_HTML = MimeType.valueOf(TEXT_HTML_VALUE);
-		TEXT_PLAIN = MimeType.valueOf(TEXT_PLAIN_VALUE);
-		TEXT_XML = MimeType.valueOf(TEXT_XML_VALUE);
+		// Not using "parseMimeType" to avoid static init cost
+		ALL = new MimeType("*", "*");
+		APPLICATION_JSON = new MimeType("application", "json");
+		APPLICATION_OCTET_STREAM = new MimeType("application", "octet-stream");
+		APPLICATION_XML = new MimeType("application", "xml");
+		IMAGE_GIF = new MimeType("image", "gif");
+		IMAGE_JPEG = new MimeType("image", "jpeg");
+		IMAGE_PNG = new MimeType("image", "png");
+		TEXT_HTML = new MimeType("text", "html");
+		TEXT_PLAIN = new MimeType("text", "plain");
+		TEXT_XML = new MimeType("text", "xml");
 	}
 
 
 	/**
 	 * Parse the given String into a single {@code MimeType}.
+	 * Recently parsed {@code MimeType} are cached for further retrieval.
 	 * @param mimeType the string to parse
 	 * @return the mime type
 	 * @throws InvalidMimeTypeException if the string cannot be parsed
@@ -182,7 +188,14 @@ public abstract class MimeTypeUtils {
 		if (!StringUtils.hasLength(mimeType)) {
 			throw new InvalidMimeTypeException(mimeType, "'mimeType' must not be empty");
 		}
+		// do not cache multipart mime types with random boundaries
+		if (mimeType.startsWith("multipart")) {
+			return parseMimeTypeInternal(mimeType);
+		}
+		return cachedMimeTypes.get(mimeType);
+	}
 
+	private static MimeType parseMimeTypeInternal(String mimeType) {
 		int index = mimeType.indexOf(';');
 		String fullType = (index >= 0 ? mimeType.substring(0, index) : mimeType).trim();
 		if (fullType.isEmpty()) {
@@ -201,7 +214,7 @@ public abstract class MimeTypeUtils {
 			throw new InvalidMimeTypeException(mimeType, "does not contain subtype after '/'");
 		}
 		String type = fullType.substring(0, subIndex);
-		String subtype = fullType.substring(subIndex + 1, fullType.length());
+		String subtype = fullType.substring(subIndex + 1);
 		if (MimeType.WILDCARD_TYPE.equals(type) && !MimeType.WILDCARD_TYPE.equals(subtype)) {
 			throw new InvalidMimeTypeException(mimeType, "wildcard type is legal only in '*/*' (all mime types)");
 		}
@@ -230,7 +243,7 @@ public abstract class MimeTypeUtils {
 				int eqIndex = parameter.indexOf('=');
 				if (eqIndex >= 0) {
 					String attribute = parameter.substring(0, eqIndex).trim();
-					String value = parameter.substring(eqIndex + 1, parameter.length()).trim();
+					String value = parameter.substring(eqIndex + 1).trim();
 					parameters.put(attribute, value);
 				}
 			}
@@ -260,7 +273,9 @@ public abstract class MimeTypeUtils {
 			return Collections.emptyList();
 		}
 		return tokenize(mimeTypes).stream()
-				.map(MimeTypeUtils::parseMimeType).collect(Collectors.toList());
+				.filter(StringUtils::hasText)
+				.map(MimeTypeUtils::parseMimeType)
+				.collect(Collectors.toList());
 	}
 
 	/**
@@ -318,7 +333,6 @@ public abstract class MimeTypeUtils {
 		return builder.toString();
 	}
 
-
 	/**
 	 * Sorts the given list of {@code MimeType} objects by specificity.
 	 * <p>Given two mime types:
@@ -340,7 +354,7 @@ public abstract class MimeTypeUtils {
 	 * <blockquote>audio/basic == text/html</blockquote> <blockquote>audio/basic ==
 	 * audio/wave</blockquote>
 	 * @param mimeTypes the list of mime types to be sorted
-	 * @see <a href="http://tools.ietf.org/html/rfc7231#section-5.3.2">HTTP 1.1: Semantics
+	 * @see <a href="https://tools.ietf.org/html/rfc7231#section-5.3.2">HTTP 1.1: Semantics
 	 * and Content, section 5.3.2</a>
 	 */
 	public static void sortBySpecificity(List<MimeType> mimeTypes) {

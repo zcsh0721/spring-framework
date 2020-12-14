@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,6 @@
 package org.springframework.jdbc.core.namedparam;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -53,7 +52,7 @@ public abstract class NamedParameterUtils {
 
 	/**
 	 * Set of characters that qualify as parameter separators,
-	 * indicating that a parameter name in a SQL String has ended.
+	 * indicating that a parameter name in an SQL String has ended.
 	 */
 	private static final String PARAMETER_SEPARATORS = "\"':&,;()|=+-*%/\\<>^";
 
@@ -84,7 +83,7 @@ public abstract class NamedParameterUtils {
 		Assert.notNull(sql, "SQL must not be null");
 
 		Set<String> namedParameters = new HashSet<>();
-		String sqlToUse = sql;
+		StringBuilder sqlToUse = new StringBuilder(sql);
 		List<ParameterHolder> parameterList = new ArrayList<>();
 
 		char[] statement = sql.toCharArray();
@@ -156,7 +155,7 @@ public abstract class NamedParameterUtils {
 					int j = i + 1;
 					if (j < statement.length && statement[j] == ':') {
 						// escaped ":" should be skipped
-						sqlToUse = sqlToUse.substring(0, i - escapes) + sqlToUse.substring(i - escapes + 1);
+						sqlToUse.deleteCharAt(i - escapes);
 						escapes++;
 						i = i + 2;
 						continue;
@@ -175,7 +174,7 @@ public abstract class NamedParameterUtils {
 			}
 			i++;
 		}
-		ParsedSql parsedSql = new ParsedSql(sqlToUse);
+		ParsedSql parsedSql = new ParsedSql(sqlToUse.toString());
 		for (ParameterHolder ph : parameterList) {
 			parsedSql.addNamedParameter(ph.getParameterName(), ph.getStartIndex(), ph.getEndIndex());
 		}
@@ -284,8 +283,8 @@ public abstract class NamedParameterUtils {
 				if (value instanceof SqlParameterValue) {
 					value = ((SqlParameterValue) value).getValue();
 				}
-				if (value instanceof Collection) {
-					Iterator<?> entryIter = ((Collection<?>) value).iterator();
+				if (value instanceof Iterable) {
+					Iterator<?> entryIter = ((Iterable<?>) value).iterator();
 					int k = 0;
 					while (entryIter.hasNext()) {
 						if (k > 0) {
@@ -346,9 +345,9 @@ public abstract class NamedParameterUtils {
 		for (int i = 0; i < paramNames.size(); i++) {
 			String paramName = paramNames.get(i);
 			try {
-				Object value = paramSource.getValue(paramName);
 				SqlParameter param = findParameter(declaredParams, paramName, i);
-				paramArray[i] = (param != null ? new SqlParameterValue(param, value) : value);
+				paramArray[i] = (param != null ? new SqlParameterValue(param, paramSource.getValue(paramName)) :
+						SqlParameterSourceUtils.getTypedValue(paramSource, paramName));
 			}
 			catch (IllegalArgumentException ex) {
 				throw new InvalidDataAccessApiUsageException(

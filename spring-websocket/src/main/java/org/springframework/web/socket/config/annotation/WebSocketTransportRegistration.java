@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -92,7 +92,7 @@ public class WebSocketTransportRegistration {
 	 * is used by default on Tomcat 8. If you must use blocking IO consider
 	 * customizing OS-level TCP settings, for example
 	 * {@code /proc/sys/net/ipv4/tcp_retries2} on Linux.
-	 * <p>The default value is 10 seconds (i.e. 10 * 10000).
+	 * <p>The default value is 10 seconds (i.e. 10 * 1000).
 	 * @param timeLimit the timeout value in milliseconds; the value must be
 	 * greater than 0, otherwise it is ignored.
 	 */

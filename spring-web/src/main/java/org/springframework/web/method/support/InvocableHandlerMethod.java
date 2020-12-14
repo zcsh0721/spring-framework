@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
+import org.springframework.core.CoroutinesUtils;
 import org.springframework.core.DefaultParameterNameDiscoverer;
+import org.springframework.core.KotlinDetector;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.lang.Nullable;
@@ -39,6 +41,7 @@ import org.springframework.web.method.HandlerMethod;
  *
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
+ * @author Sebastien Deleuze
  * @since 3.1
  */
 public class InvocableHandlerMethod extends HandlerMethod {
@@ -46,12 +49,12 @@ public class InvocableHandlerMethod extends HandlerMethod {
 	private static final Object[] EMPTY_ARGS = new Object[0];
 
 
-	@Nullable
-	private WebDataBinderFactory dataBinderFactory;
-
 	private HandlerMethodArgumentResolverComposite resolvers = new HandlerMethodArgumentResolverComposite();
 
 	private ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
+
+	@Nullable
+	private WebDataBinderFactory dataBinderFactory;
 
 
 	/**
@@ -83,16 +86,8 @@ public class InvocableHandlerMethod extends HandlerMethod {
 
 
 	/**
-	 * Set the {@link WebDataBinderFactory} to be passed to argument resolvers allowing them to create
-	 * a {@link WebDataBinder} for data binding and type conversion purposes.
-	 * @param dataBinderFactory the data binder factory.
-	 */
-	public void setDataBinderFactory(WebDataBinderFactory dataBinderFactory) {
-		this.dataBinderFactory = dataBinderFactory;
-	}
-
-	/**
-	 * Set {@link HandlerMethodArgumentResolver HandlerMethodArgumentResolvers} to use to use for resolving method argument values.
+	 * Set {@link HandlerMethodArgumentResolver HandlerMethodArgumentResolvers}
+	 * to use for resolving method argument values.
 	 */
 	public void setHandlerMethodArgumentResolvers(HandlerMethodArgumentResolverComposite argumentResolvers) {
 		this.resolvers = argumentResolvers;
@@ -105,6 +100,14 @@ public class InvocableHandlerMethod extends HandlerMethod {
 	 */
 	public void setParameterNameDiscoverer(ParameterNameDiscoverer parameterNameDiscoverer) {
 		this.parameterNameDiscoverer = parameterNameDiscoverer;
+	}
+
+	/**
+	 * Set the {@link WebDataBinderFactory} to be passed to argument resolvers allowing them
+	 * to create a {@link WebDataBinder} for data binding and type conversion purposes.
+	 */
+	public void setDataBinderFactory(WebDataBinderFactory dataBinderFactory) {
+		this.dataBinderFactory = dataBinderFactory;
 	}
 
 
@@ -147,10 +150,11 @@ public class InvocableHandlerMethod extends HandlerMethod {
 	protected Object[] getMethodArgumentValues(NativeWebRequest request, @Nullable ModelAndViewContainer mavContainer,
 			Object... providedArgs) throws Exception {
 
-		if (ObjectUtils.isEmpty(getMethodParameters())) {
+		MethodParameter[] parameters = getMethodParameters();
+		if (ObjectUtils.isEmpty(parameters)) {
 			return EMPTY_ARGS;
 		}
-		MethodParameter[] parameters = getMethodParameters();
+
 		Object[] args = new Object[parameters.length];
 		for (int i = 0; i < parameters.length; i++) {
 			MethodParameter parameter = parameters[i];
@@ -166,11 +170,11 @@ public class InvocableHandlerMethod extends HandlerMethod {
 				args[i] = this.resolvers.resolveArgument(parameter, mavContainer, request, this.dataBinderFactory);
 			}
 			catch (Exception ex) {
-				// Leave stack trace for later, exception may actually be resolved and handled..
+				// Leave stack trace for later, exception may actually be resolved and handled...
 				if (logger.isDebugEnabled()) {
-					String error = ex.getMessage();
-					if (error != null && !error.contains(parameter.getExecutable().toGenericString())) {
-						logger.debug(formatArgumentError(parameter, error));
+					String exMsg = ex.getMessage();
+					if (exMsg != null && !exMsg.contains(parameter.getExecutable().toGenericString())) {
+						logger.debug(formatArgumentError(parameter, exMsg));
 					}
 				}
 				throw ex;
@@ -184,12 +188,16 @@ public class InvocableHandlerMethod extends HandlerMethod {
 	 */
 	@Nullable
 	protected Object doInvoke(Object... args) throws Exception {
-		ReflectionUtils.makeAccessible(getBridgedMethod());
+		Method method = getBridgedMethod();
+		ReflectionUtils.makeAccessible(method);
 		try {
-			return getBridgedMethod().invoke(getBean(), args);
+			if (KotlinDetector.isSuspendingFunction(method)) {
+				return CoroutinesUtils.invokeSuspendingFunction(method, getBean(), args);
+			}
+			return method.invoke(getBean(), args);
 		}
 		catch (IllegalArgumentException ex) {
-			assertTargetBean(getBridgedMethod(), getBean(), args);
+			assertTargetBean(method, getBean(), args);
 			String text = (ex.getMessage() != null ? ex.getMessage() : "Illegal argument");
 			throw new IllegalStateException(formatInvokeError(text, args), ex);
 		}
